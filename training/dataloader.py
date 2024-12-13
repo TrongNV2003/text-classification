@@ -1,34 +1,23 @@
 import pandas as pd
+import json
 from training.preprocessing import TextPreprocess
+from typing import Mapping, Tuple
+import torch
 
 proc = TextPreprocess()
 
 class Dataset:
-    def __init__(self):
-        pass
+    def __init__(self, json_file):
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        self.data = data
 
-    def load_dataset(self, path):
-        dataset = pd.read_csv(path, encoding="utf-8")
-        return dataset
+    def __len__(self) -> int:
+        return len(self.data)
 
-    def dnn_approach_dataset(self):
-        train_set = self.load_dataset('dataset/train.csv')
-        test_set = self.load_dataset('dataset/test.csv')
-        evaluate_set = self.load_dataset("dataset/dev.csv")
-
-        train_set['text_processed'] = train_set['text'].apply(proc.remove_stopwords).apply(proc.process_text)
-        evaluate_set['text_processed'] = evaluate_set['text'].apply(proc.remove_stopwords).apply(proc.process_text)
-        test_set['text_processed'] = test_set['text'].apply(proc.remove_stopwords).apply(proc.process_text)
+    def __getitem__(self, index: int):
+        item = self.data[index]
+        context = item["text"]
+        label = item["label"]
         
-        return train_set, test_set, evaluate_set
-    
-    def traditional_approach_dataset(self):
-        train_set = self.load_dataset('dataset/train.csv')
-        test_set = self.load_dataset('dataset/test.csv')
-        evaluate_set = self.load_dataset("dataset/dev.csv")
-
-        train_set['text_processed'] = train_set['text']
-        evaluate_set['text_processed'] = evaluate_set['text']
-        test_set['text_processed'] = test_set['text']
-        
-        return train_set, test_set, evaluate_set
+        return context, label
