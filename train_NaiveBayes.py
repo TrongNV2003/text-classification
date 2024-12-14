@@ -36,7 +36,7 @@ if __name__ == "__main__":
     process_time = round(end_time - start_time, 6)
     print(f"Training time: {process_time}")
 
-    result = []
+    latencies = []
     for test in test_text_vect:
         start_time = time.time()
 
@@ -44,12 +44,9 @@ if __name__ == "__main__":
         trainer.train()
 
         end_time = time.time()    
-        process_time = end_time - start_time
         
-        result.append({
-            "process_time": process_time
-        })
+        latencies.append(end_time - start_time)
 
     prediction = model.predict(test_text_vect)
     Tester.f1(test_label, prediction)
-    Tester.calculate_latency(result)
+    Tester.calculate_latency(latencies)
