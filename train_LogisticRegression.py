@@ -1,7 +1,8 @@
 import time
 import argparse
 from training.dataloader import Dataset
-from training.trainer import LogisRegression, Vectorizer
+from training.trainer import Vectorizer
+from training.models import LogisRegression
 from evaluate.evaluate_output import f1, calculate_latency, result_recorder
 
 vec = Vectorizer()

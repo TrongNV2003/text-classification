@@ -1,7 +1,8 @@
 import time
 import argparse
 from training.dataloader import Dataset
-from training.trainer import NB, Vectorizer
+from training.models import NB
+from training.trainer import Vectorizer
 from evaluate.evaluate_output import f1, calculate_latency, result_recorder
 
 nb = NB()

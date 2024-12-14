@@ -8,8 +8,8 @@ from training.evaluate import Tester
 from gensim.models import KeyedVectors
 from training.dataloader import Dataset
 from torch.utils.data import TensorDataset, DataLoader
-from training.trainer import CNN, Tokenizer, Trainer
-
+from training.trainer import Tokenizer, Trainer
+from training.models import CNN
 tokenizer = Tokenizer()
 def set_seed(seed: int) -> None:
     random.seed(seed)
@@ -23,10 +23,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train_file", type=str, default="dataset/train.json")
     parser.add_argument("--test_file", type=str, default="dataset/test.json")
     parser.add_argument("--eval_file", type=str, default="dataset/evaluate.json")
-    parser.add_argument("--model_path", type=str, default="models/wiki.vi.model.bin")
+    parser.add_argument("--dict_path", type=str, default="models/wiki.vi.model.bin")
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--lr", type=float, default=0.001)
+    parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--max_length", type=int, default=200)
     return parser.parse_args()
 
@@ -48,9 +48,8 @@ if __name__ == "__main__":
     test_text = [test_set[i][0] for i in range(len(test_set))]
     test_label = [test_set[i][1] for i in range(len(test_set))]
 
-
     # Tokenizer
-    pretrain_embed = KeyedVectors.load_word2vec_format(args.model_path, binary=True)
+    pretrain_embed = KeyedVectors.load_word2vec_format(args.dict_path, binary=True)
 
     pretrained_words = {'<pad>': 0, '<unk>': 1}
     for idx, word in enumerate(pretrain_embed.key_to_index, start=2):
