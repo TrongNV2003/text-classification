@@ -2,15 +2,13 @@ import torch
 import random
 import argparse
 import numpy as np
-import torch.nn as nn
-import torch.nn.functional as F
+from training.models import CNN
+from training.trainer import Trainer
 from training.evaluate import Tester
 from gensim.models import KeyedVectors
 from training.dataloader import Dataset
-from torch.utils.data import TensorDataset, DataLoader
-from training.trainer import Tokenizer, Trainer
-from training.models import CNN
-tokenizer = Tokenizer()
+from torch.utils.data import DataLoader
+
 def set_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
@@ -24,10 +22,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--test_file", type=str, default="dataset/test.json")
     parser.add_argument("--eval_file", type=str, default="dataset/evaluate.json")
     parser.add_argument("--dict_path", type=str, default="models/wiki.vi.model.bin")
-    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--lr", type=float, default=1e-4)
-    parser.add_argument("--max_length", type=int, default=200)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--batch_size", type=int, default=32)
+
     return parser.parse_args()
 
 
@@ -35,50 +33,26 @@ if __name__ == "__main__":
     set_seed(42)
     args = parse_args()
 
-    train_set = Dataset(args.train_file)
-    test_set = Dataset(args.test_file)
-    eval_set = Dataset(args.eval_file)
-
-    train_text = [train_set[i][0] for i in range(len(train_set))]
-    train_label = [train_set[i][1] for i in range(len(train_set))]
-
-    eval_text = [eval_set[i][0] for i in range(len(eval_set))]
-    eval_label = [eval_set[i][1] for i in range(len(eval_set))]
-
-    test_text = [test_set[i][0] for i in range(len(test_set))]
-    test_label = [test_set[i][1] for i in range(len(test_set))]
-
-    # Tokenizer
     pretrain_embed = KeyedVectors.load_word2vec_format(args.dict_path, binary=True)
 
-    pretrained_words = {'<pad>': 0, '<unk>': 1}
+    pretrained_dict = {'<pad>': 0, '<unk>': 1}
     for idx, word in enumerate(pretrain_embed.key_to_index, start=2):
-        pretrained_words[word] = idx
-
-    train_tokenized = tokenizer.tokenize(pretrained_words, train_text)
-    eval_tokenized = tokenizer.tokenize(pretrained_words, eval_text)
-    test_tokenized = tokenizer.tokenize(pretrained_words, test_text)
-
-    features_train = tokenizer.padding(train_tokenized, args.max_length)
-    features_eval = tokenizer.padding(eval_tokenized, args.max_length)
-    features_test = tokenizer.padding(test_tokenized, args.max_length)
-
-    train_data = TensorDataset(torch.from_numpy(features_train), torch.from_numpy(np.array(train_label)))
-    valid_data = TensorDataset(torch.from_numpy(features_eval), torch.from_numpy(np.array(eval_label)))
-    test_data = TensorDataset(torch.from_numpy(features_test), torch.from_numpy(np.array(test_label)))
+        pretrained_dict[word] = idx
+        
+    train_data = Dataset(args.train_file, pretrained_dict)._return_tensor()
+    valid_data = Dataset(args.test_file, pretrained_dict)._return_tensor()
+    test_data = Dataset(args.eval_file, pretrained_dict)._return_tensor()
 
     train_loader = DataLoader(train_data, shuffle=True, batch_size=args.batch_size)
-    valid_loader = DataLoader(valid_data, shuffle=True, batch_size=args.batch_size)
-    test_loader = DataLoader(test_data, shuffle=True, batch_size=args.batch_size)
+    valid_loader = DataLoader(valid_data, shuffle=False, batch_size=args.batch_size)
+    test_loader = DataLoader(test_data, shuffle=False, batch_size=args.batch_size)
 
-    train_on_gpu=torch.cuda.is_available()
-
-    if(train_on_gpu):
+    if(torch.cuda.is_available()):
         print('Training on GPU.')
     else:
         print('No GPU available, training on CPU.')
         
-    vocab_size = len(pretrained_words)
+    vocab_size = len(pretrained_dict)
     output_size = 1 # binary (1 or 0)
     embedding_dim = pretrain_embed.vector_size
     num_filters = 100

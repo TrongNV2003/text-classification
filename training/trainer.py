@@ -17,21 +17,6 @@ class Vectorizer:
         text_vector = self.vectorizer.transform(text_set)
         return text_vector
 
-class Tokenizer:
-    def tokenize(self, pretrained_words, texts_split):
-        tokenized_texts = []
-        for text in texts_split:
-            words = text.split()
-            tokenized_text = [pretrained_words.get(word, pretrained_words['<unk>']) for word in words]
-            tokenized_texts.append(tokenized_text)
-        return tokenized_texts
-
-    def padding(self, tokenized_texts, seq_length):
-        features = np.zeros((len(tokenized_texts), seq_length), dtype=int)
-        for i, row in enumerate(tokenized_texts):
-            features[i, -len(row):] = np.array(row)[:seq_length]
-        return features
-
 class Trainer:
     def __init__(
             self,
