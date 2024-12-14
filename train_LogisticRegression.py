@@ -1,11 +1,11 @@
 import time
 import argparse
 from training.dataloader import Dataset
-from training.trainer import LogisticRegression_Trainer, Vectorizer
+from training.trainer import LogisRegression, Vectorizer
 from evaluate.evaluate_output import f1, calculate_latency, result_recorder
 
 vec = Vectorizer()
-lr = LogisticRegression_Trainer()
+lr = LogisRegression()
 
 parser = argparse.ArgumentParser()
 

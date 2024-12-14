@@ -1,11 +1,11 @@
 import time
 import argparse
 from training.dataloader import Dataset
-from training.trainer import SVM_Trainer, Vectorizer
+from training.trainer import SVM, Vectorizer
 from evaluate.evaluate_output import f1, calculate_latency, result_recorder
 
 vec = Vectorizer()
-svm = SVM_Trainer()
+svm = SVM()
 
 parser = argparse.ArgumentParser()
 

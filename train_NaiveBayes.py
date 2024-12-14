@@ -1,10 +1,10 @@
 import time
 import argparse
 from training.dataloader import Dataset
-from training.trainer import NB_Trainer, Vectorizer
+from training.trainer import NB, Vectorizer
 from evaluate.evaluate_output import f1, calculate_latency, result_recorder
 
-nb = NB_Trainer()
+nb = NB()
 vec = Vectorizer()
 
 parser = argparse.ArgumentParser()
