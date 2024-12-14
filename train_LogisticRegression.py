@@ -1,16 +1,18 @@
 import time
 import argparse
+from training.evaluate import Tester
 from training.dataloader import Dataset
-from training.trainer import LogisRegression, Vectorizer
-from evaluate.evaluate_output import f1, calculate_latency, result_recorder
+from sklearn.linear_model import LogisticRegression
+from training.trainer import Vectorizer, Trainer_trad
 
 vec = Vectorizer()
-lr = LogisRegression()
+model = LogisticRegression(random_state = 42)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--train_file", type=str, default="dataset/train.json")
 parser.add_argument("--test_file", type=str, default="dataset/test.json")
+
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -23,28 +25,31 @@ if __name__ == "__main__":
     test_text = [test_set[i][0] for i in range(len(test_set))]
     test_label = [test_set[i][1] for i in range(len(test_set))]
 
+
     train_text_vect = vec.train_vectorizer(train_text)
     test_text_vect = vec.test_vectorizer(test_text)
     
     start_time = time.time()
-    classifier = lr.train(train_text_vect, train_label)
+
+    trainer = Trainer_trad(model, train_text_vect, train_label)
+    trainer.train()
+
     end_time = time.time()
     process_time = round(end_time - start_time, 6)
     print(f"Training time: {process_time}")
 
-    result = []
+    latencies = []
     for test in test_text_vect:
         start_time = time.time()
-        prediction = classifier.predict(test)
-        end_time = time.time()    
-        process_time = end_time - start_time
-        
-        result.append({
-            "process_time": process_time
-        })
 
-    result_file = "result/output_lr.json"
-    f1(lr, test_text_vect, test_label)
-    result_recorder(result_file, result)
-    calculate_latency(result_file)
+        trainer = Trainer_trad(model, train_text_vect, train_label)
+        trainer.train()
+
+        end_time = time.time()    
+        
+        latencies.append(end_time - start_time)
+
+    prediction = model.predict(test_text_vect)
+    Tester.f1(test_label, prediction)
+    Tester.calculate_latency(latencies)
     
