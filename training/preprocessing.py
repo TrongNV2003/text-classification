@@ -1,6 +1,4 @@
-import re
 import string
-import pandas as pd
 
 class TextPreprocess:
     def __init__(self):

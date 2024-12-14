@@ -1,47 +1,6 @@
 import torch
 import torch.nn as nn
-from sklearn.svm import SVC
 import torch.nn.functional as F
-from sklearn.naive_bayes import ComplementNB
-from sklearn.linear_model import LogisticRegression
-
-class SVM:
-    def __init__(self):
-        self.seed = 42
-        self.model_svm = SVC(random_state = self.seed)
-
-    def train(self, vector, label):
-        trainer = self.model_svm.fit(vector, label)
-        return trainer
-    
-    def predict(self, vector):
-        predicter = self.model_svm.predict(vector)
-        return predicter
-
-class NB:
-    def __init__(self):
-        self.model_nb = ComplementNB()
-
-    def train(self, vector, label):
-        trainer = self.model_nb.fit(vector, label)
-        return trainer
-        
-    def predict(self, vector):
-        prediction = self.model_nb.predict(vector)
-        return prediction
-
-class LogisRegression:
-    def __init__(self):
-        self.seed = 42
-        self.model_lr = LogisticRegression(random_state=self.seed)
-
-    def train(self, vector, label):
-        trainer = self.model_lr.fit(vector, label)
-        return trainer
-    
-    def predict(self, vector):
-        prediction = self.model_lr.predict(vector)
-        return prediction
 
 class CNN(nn.Module):
     def __init__(self, embed_model, vocab_size, output_size, embedding_dim,
@@ -59,7 +18,6 @@ class CNN(nn.Module):
         self.convs_1d = nn.ModuleList([
             nn.Conv2d(1, num_filters, (k, embedding_dim), padding=(k-2,0))
             for k in kernel_sizes]
-            # activation Relu
             )
 
         self.full_connected = nn.Linear(len(kernel_sizes) * num_filters, output_size)

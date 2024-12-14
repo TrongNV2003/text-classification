@@ -17,6 +17,20 @@ class Vectorizer:
         text_vector = self.vectorizer.transform(text_set)
         return text_vector
 
+class Trainer_trad:
+    def __init__(self, model, vector, label: None):
+        self.model = model
+        self.vector = vector
+        self.label = label
+
+    def train(self):
+        trainer = self.model.fit(self.vector, self.label)
+        return trainer
+    
+    def predict(self):
+        predicter = self.model.predict(self.vector)
+        return predicter
+
 class Trainer:
     def __init__(
             self,
