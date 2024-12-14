@@ -1,8 +1,5 @@
-import pandas as pd
 import json
 from training.preprocessing import TextPreprocess
-from typing import Mapping, Tuple
-import torch
 
 proc = TextPreprocess()
 
@@ -21,3 +18,4 @@ class Dataset:
         label = item["label"]
         
         return context, label
+          
