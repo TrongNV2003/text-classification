@@ -1,11 +1,11 @@
 import time
 import argparse
 from training.dataloader import Dataset
-from training.models import NB
-from training.trainer import Vectorizer
-from evaluate.evaluate_output import f1, calculate_latency, result_recorder
+from sklearn.naive_bayes import ComplementNB
+from training.trainer import Vectorizer, Trainer_trad
+from training.evaluate import Tester
 
-nb = NB()
+model = ComplementNB()
 vec = Vectorizer()
 
 parser = argparse.ArgumentParser()
@@ -28,7 +28,10 @@ if __name__ == "__main__":
     test_text_vect = vec.test_vectorizer(test_text)
     
     start_time = time.time()
-    classifier = nb.train(train_text_vect, train_label)
+    
+    trainer = Trainer_trad(model, train_text_vect, train_label)
+    trainer.train()
+
     end_time = time.time()
     process_time = round(end_time - start_time, 6)
     print(f"Training time: {process_time}")
@@ -36,7 +39,10 @@ if __name__ == "__main__":
     result = []
     for test in test_text_vect:
         start_time = time.time()
-        prediction = classifier.predict(test)
+
+        trainer = Trainer_trad(model, train_text_vect, train_label)
+        trainer.train()
+
         end_time = time.time()    
         process_time = end_time - start_time
         
@@ -44,7 +50,6 @@ if __name__ == "__main__":
             "process_time": process_time
         })
 
-    result_file = "result/output_nb.json"
-    f1(nb, test_text_vect, test_label)
-    result_recorder(result_file, result)
-    calculate_latency(result_file)
+    prediction = model.predict(test_text_vect)
+    Tester.f1(test_label, prediction)
+    Tester.calculate_latency(result)
