@@ -4,9 +4,10 @@ from training.dataloader import Dataset
 from sklearn.naive_bayes import ComplementNB
 from training.trainer import Vectorizer, Trainer_trad
 from training.evaluate import Tester
+from training.models import NaiveBayes
 
-model = ComplementNB()
 vec = Vectorizer()
+model = NaiveBayes()
 
 parser = argparse.ArgumentParser()
 
@@ -46,7 +47,17 @@ if __name__ == "__main__":
         end_time = time.time()    
         
         latencies.append(end_time - start_time)
+    
 
     prediction = model.predict(test_text_vect)
     Tester.f1(test_label, prediction)
     Tester.calculate_latency(latencies)
+
+
+# test 1 câu đơn
+    text1 = test_text[10]
+    test1 = test_text_vect[10]
+    prediction = model.predict(test1.reshape(1, -1))
+
+    print(text1)
+    print(f"Prediction: {prediction}")
