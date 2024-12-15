@@ -40,8 +40,8 @@ if __name__ == "__main__":
     for test in test_text_vect:
         start_time = time.time()
 
-        trainer = Trainer_trad(model, train_text_vect, train_label)
-        trainer.train()
+        tester = Trainer_trad(model, test, test_label)
+        tester.predict()
 
         end_time = time.time()    
         
