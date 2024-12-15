@@ -1,6 +1,7 @@
 import json
 import torch
 import numpy as np
+from training.preprocessing import TextPreprocess
 
 class Dataset:
     def __init__(self, json_file):
@@ -14,8 +15,9 @@ class Dataset:
     def __getitem__(self, index: int):
         item = self.data[index]
         context = item["text"]
+        clean_text = TextPreprocess(context).process_text()
         label = item["label"]
-        return context, label
+        return clean_text, label
 
 class DatasetCollator:
     def __init__(self, pretrained_words, seq_length = 200):
