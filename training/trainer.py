@@ -4,10 +4,11 @@ import numpy as np
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from sklearn.feature_extraction.text import TfidfVectorizer
+from training.tf_idf import TfidfVectorize
 
 class Vectorizer:
     def __init__(self):
-        self.vectorizer = TfidfVectorizer(max_features=10000)
+        self.vectorizer = TfidfVectorize()
     
     def train_vectorizer(self, text_set):
         text_vector = self.vectorizer.fit_transform(text_set)

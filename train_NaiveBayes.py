@@ -48,16 +48,16 @@ if __name__ == "__main__":
         
         latencies.append(end_time - start_time)
     
-
+# test full tập test
     prediction = model.predict(test_text_vect)
     Tester.f1(test_label, prediction)
     Tester.calculate_latency(latencies)
 
 
-# test 1 câu đơn
-    text1 = test_text[10]
-    test1 = test_text_vect[10]
-    prediction = model.predict(test1.reshape(1, -1))
+# # test 1 câu đơn
+#     text1 = test_text[10]
+#     test1 = test_text_vect[10]
+#     prediction = model.predict(test1.reshape(1, -1))
 
-    print(text1)
-    print(f"Prediction: {prediction}")
+#     print(text1)
+#     print(f"Prediction: {prediction}")
