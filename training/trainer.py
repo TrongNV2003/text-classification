@@ -4,10 +4,11 @@ import numpy as np
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from sklearn.feature_extraction.text import TfidfVectorizer
+from training.tf_idf import TfidfVectorize
 
 class Vectorizer:
     def __init__(self):
-        self.vectorizer = TfidfVectorizer(max_features=10000)
+        self.vectorizer = TfidfVectorize()
     
     def train_vectorizer(self, text_set):
         text_vector = self.vectorizer.fit_transform(text_set)
@@ -76,6 +77,48 @@ class Trainer:
 
 
                     output = self.model(inputs)
+                    val_loss = self.loss_fn(output.squeeze(), labels.float())
+                    val_losses.append(val_loss.item())
+
+            epoch_time = time.time() - epoch_start_time
+
+            print(f"Epoch: {epoch + 1}/{self.epochs}",
+                f"Train Loss: {np.mean(train_losses):.6f}",
+                f"Val Loss: {np.mean(val_losses):.6f}",
+                f"Time: {epoch_time:.2f}s")
+            
+
+    def train_rnn(self) -> None:
+        clip = 5 # The maximum gradient value to clip at (to prevent exploding gradients).
+        for epoch in range(self.epochs):
+            h = self.model.init_hidden(16)
+            epoch_start_time = time.time()
+            train_losses = []
+            
+            self.model.train()
+
+            for inputs, labels in self.train_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                h = tuple([each.data for each in h])
+                self.model.zero_grad()
+
+                output, h = self.model(inputs, h)
+
+                loss = self.loss_fn(output.squeeze(), labels.float())
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.model.parameters(), clip) # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+                self.optimizer.step()
+
+                train_losses.append(loss.item())
+
+            val_losses = []
+            self.model.eval()
+            with torch.no_grad():
+                for inputs, labels in self.valid_loader:
+                    val_h = tuple([each.data for each in val_h])
+                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+
+                    output, val_h = self.model(inputs, val_h)
                     val_loss = self.loss_fn(output.squeeze(), labels.float())
                     val_losses.append(val_loss.item())
 
