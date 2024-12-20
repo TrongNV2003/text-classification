@@ -45,19 +45,22 @@ class DatasetCollator:
 
 
 class LlmDataCollator:
-    def __init__(self, tokenizer: AutoTokenizer, max_length: int = 0) -> None:
+    def __init__(self, tokenizer: AutoTokenizer, max_length: int):
         self.tokenizer = tokenizer
         self.max_length = max_length
-        
+
     def __call__(self, batch):
         contexts, labels = zip(*batch)
-        text = self.tokenizer(
+        
+        texts = self.tokenizer(
             contexts,
             max_length=self.max_length,
+            padding="max_length",
             truncation=True,
-            padding=True,
             return_tensors="pt"
         )
-
-        labels = torch.arange(len(batch), dtype=torch.float)
-        return text, labels
+        return {
+            "text_input_ids": texts["input_ids"].squeeze(),
+            "text_attention_mask": texts["attention_mask"].squeeze(),
+            "label": torch.tensor(np.array(labels), dtype=torch.long)
+        }

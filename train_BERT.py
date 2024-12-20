@@ -2,9 +2,11 @@ import torch
 import random
 import argparse
 import numpy as np
+from training.evaluate import Tester
+from torch.utils.data import DataLoader
 from training.trainer import LlmTrainer
 from training.dataloader import Dataset, LlmDataCollator
-from transformers import AutoConfig, RobertaModel, AutoTokenizer
+from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
 
 def set_seed(seed: int) -> None:
     random.seed(seed)
@@ -22,13 +24,14 @@ parser.add_argument("--learning_rate", type=float, default=2e-5)
 parser.add_argument("--weight_decay", type=float, default=0.01)
 parser.add_argument("--max_length", type=int, default=256)
 parser.add_argument("--pad_mask_id", type=int, default=-100)
-parser.add_argument("--model", type=str, default="bkai-foundation-models/vietnamese-bi-encoder")
+parser.add_argument("--model", type=str, default="tabularisai/multilingual-sentiment-analysis")
 parser.add_argument("--pin_memory", dest="pin_memory", action="store_true", default=False)
 parser.add_argument("--save_dir", type=str, default="./bert-classification")
 parser.add_argument("--train_batch_size", type=int, default=16)
 parser.add_argument("--valid_batch_size", type=int, default=8)
 parser.add_argument("--train_file", type=str, default="dataset/train.json")
 parser.add_argument("--valid_file", type=str, default="dataset/valid.json")
+parser.add_argument("--test_file", type=str, default="dataset/test.json")
 parser.add_argument("--seed", type=int, default=42)
 
 args = parser.parse_args()
@@ -40,9 +43,9 @@ def get_tokenizer(checkpoint: str) -> AutoTokenizer:
     # )
     return tokenizer
 
-def get_model(checkpoint: str, device: str, tokenizer: AutoTokenizer) -> RobertaModel:
+def get_model(checkpoint: str, device: str, tokenizer: AutoTokenizer) -> AutoModelForSequenceClassification:
     config = AutoConfig.from_pretrained(checkpoint)
-    model = RobertaModel.from_pretrained(checkpoint, config=config)
+    model = AutoModelForSequenceClassification.from_pretrained(checkpoint, config=config)
     model.resize_token_embeddings(len(tokenizer))
     model = model.to(device)
     return model
@@ -78,3 +81,14 @@ if __name__ == "__main__":
         collator_fn=collator
     )
     trainer.train()
+
+# test model
+    MODEL = "bert-classification"
+    tuned_model = AutoModelForSequenceClassification.from_pretrained(MODEL)
+
+    test_set = Dataset(args.test_file)
+    collator = LlmDataCollator(tokenizer=tokenizer, max_length=args.max_length)
+    test_loader = DataLoader(test_set, batch_size=8, shuffle=False, collate_fn=collator)
+    tester = Tester(model=tuned_model, test_loader=test_loader)
+
+    tester.test_llm()
