@@ -8,7 +8,7 @@ class TextPreprocess:
     def process_text(self):
         """Hàm chính để xử lý toàn bộ văn bản."""
         cleaned_text = self._remove_punctuation(self.text)
-        cleaned_text = self._remove_stopwords(cleaned_text)
+        # cleaned_text = self._remove_stopwords(cleaned_text)
         return cleaned_text
 
     def _remove_stopwords(self, text):

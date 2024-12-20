@@ -22,6 +22,7 @@ parser.add_argument("--train_file", type=str, default="dataset/train.json")
 parser.add_argument("--test_file", type=str, default="dataset/test.json")
 parser.add_argument("--eval_file", type=str, default="dataset/evaluate.json")
 parser.add_argument("--dict_path", type=str, default="models/wiki.vi.model.bin")
+parser.add_argument("--save_dir", type=str, default="CNN_model/")
 parser.add_argument("--epochs", type=int, default=5)
 parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--batch_size", type=int, default=16)
@@ -54,7 +55,7 @@ if __name__ == "__main__":
         
     vocab_size = len(pretrained_dict)
     output_size = 1 # binary (1 or 0)
-    embedding_dim = pretrain_embed.vector_size
+    embedding_dim = pretrain_embed.vector_size # 400
     num_filters = 100
     kernel_sizes = [3, 4, 5]
 
@@ -69,7 +70,8 @@ if __name__ == "__main__":
         epochs=args.epochs,
         learning_rate=args.lr,
         train_loader=train_loader,
-        valid_loader=valid_loader
+        valid_loader=valid_loader,
+        save_dir=args.save_dir
     )
     trainer.train()
 
@@ -77,4 +79,6 @@ if __name__ == "__main__":
         model=cnn_model,
         test_loader=test_loader
     )
+    path = "CNN_model/model_checkpoint_3.pth"
+    trainer.load_model()
     tester.test()
