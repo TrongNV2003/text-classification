@@ -43,9 +43,9 @@ if __name__ == "__main__":
 
     collator = DatasetCollator(pretrained_dict)
 
-    train_loader = DataLoader(train, shuffle=True, batch_size=args.batch_size, collate_fn=collator)
-    valid_loader = DataLoader(valid, shuffle=False, batch_size=args.batch_size, collate_fn=collator)
-    test_loader = DataLoader(test, shuffle=False, batch_size=args.batch_size, collate_fn=collator)
+    train_loader = DataLoader(train, shuffle=True, batch_size=args.batch_size, collate_fn=collator, drop_last=True)
+    valid_loader = DataLoader(valid, shuffle=False, batch_size=args.batch_size, collate_fn=collator, drop_last=True)
+    test_loader = DataLoader(test, shuffle=False, batch_size=args.batch_size, collate_fn=collator, drop_last=True)
 
     if(torch.cuda.is_available()):
         print('Training on GPU.')
