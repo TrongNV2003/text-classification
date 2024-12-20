@@ -43,6 +43,58 @@ class CNN(nn.Module):
         return self.sigmoid(logit)
 
 
+class RNN(nn.Module):
+    def __init__(self, vocab_size, output_size, embedding_dim, 
+                hidden_dim, n_layers, drop_prob=0.5):
+        
+        super(RNN, self).__init__()
+
+        self.output_size = output_size
+        self.n_layers = n_layers
+        self.hidden_dim = hidden_dim
+        
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, n_layers, 
+                            dropout=drop_prob, batch_first=True)
+        
+        self.dropout = nn.Dropout(drop_prob)
+        
+        self.full_connected = nn.Linear(hidden_dim, output_size)
+        self.sig = nn.Sigmoid()
+        
+
+    def forward(self, x, hidden):
+        # embeddings and lstm_out
+
+        x = x.long()
+        embeds = self.embedding(x)
+        lstm_out, hidden = self.lstm(embeds, hidden)
+        
+        lstm_out = lstm_out[:, -1, :] # getting the last time step output
+        
+        # dropout and fully-connected layer
+        out = self.dropout(lstm_out)
+        out = self.full_connected(out)
+
+        sig_out = self.sig(out)
+        
+        # return last sigmoid output and hidden state
+        return sig_out, hidden
+    
+    
+    def init_hidden(self, batch_size):
+        # Create two new tensors with sizes n_layers x batch_size x hidden_dim,
+        # initialized to zero, for hidden state and cell state of LSTM
+        weight = next(self.parameters()).data
+        
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        hidden = (weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device),
+                weight.new(self.n_layers, batch_size, self.hidden_dim).zero_().to(device),)
+
+        return hidden
+
+
 class NaiveBayes:
     def __init__(self):
         self.class_probs = defaultdict(float)
@@ -83,4 +135,3 @@ class NaiveBayes:
                 class_scores[label] = score
             predictions.append(max(class_scores, key=class_scores.get))
         return predictions
-
