@@ -80,5 +80,5 @@ if __name__ == "__main__":
         test_loader=test_loader
     )
     path = "CNN_model/model_checkpoint_3.pth"
-    trainer.load_model()
+    trainer.load_model(path)
     tester.test()

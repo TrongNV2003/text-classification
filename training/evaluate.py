@@ -62,10 +62,10 @@ class Tester:
 
         self.model.eval()
         for inputs, labels in self.test_loader:
-            h = tuple([each.data for each in h])
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             h = self.model.init_hidden(inputs.size(0))
-
+            h = tuple([each.data for each in h])
+            
             start_time = time.time()
 
             output, h = self.model(inputs, h)
