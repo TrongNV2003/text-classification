@@ -26,11 +26,12 @@ parser.add_argument("--save_dir", type=str, default="RNN_model/")
 parser.add_argument("--epochs", type=int, default=5)
 parser.add_argument("--lr", type=float, default=1e-3)
 parser.add_argument("--batch_size", type=int, default=16)
+parser.add_argument("--seed", type=int, default=42)
 
 args = parser.parse_args()
 
 if __name__ == "__main__":
-    set_seed(42)
+    set_seed(args.seed)
 
     pretrain_embed = KeyedVectors.load_word2vec_format(args.dict_path, binary=True)
 

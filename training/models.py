@@ -62,7 +62,6 @@ class RNN(nn.Module):
         self.full_connected = nn.Linear(hidden_dim, output_size)
         self.sig = nn.Sigmoid()
         
-
     def forward(self, x, hidden):
         # embeddings and lstm_out
 
@@ -72,15 +71,12 @@ class RNN(nn.Module):
         
         lstm_out = lstm_out[:, -1, :] # getting the last time step output
         
-        # dropout and fully-connected layer
         out = self.dropout(lstm_out)
         out = self.full_connected(out)
 
         sig_out = self.sig(out)
         
-        # return last sigmoid output and hidden state
         return sig_out, hidden
-    
     
     def init_hidden(self, batch_size):
         # Create two new tensors with sizes n_layers x batch_size x hidden_dim,
