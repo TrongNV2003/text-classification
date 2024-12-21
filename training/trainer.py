@@ -5,13 +5,12 @@ import numpy as np
 from tqdm import tqdm
 import torch.nn as nn
 from torch.optim import AdamW
-from utils import AverageMeter
 import torch.nn.functional as F
 from transformers import AutoTokenizer
+from training.utils import AverageMeter
+from training.tf_idf import TfidfVectorize
 from torch.utils.data import DataLoader, Dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
-
-from training.tf_idf import TfidfVectorize
 
 
 class Vectorizer:
