@@ -8,14 +8,15 @@ from torch.optim import AdamW
 import torch.nn.functional as F
 from transformers import AutoTokenizer
 from training.utils import AverageMeter
-from training.tf_idf import TfidfVectorize
+from training.algorithms.tf_idf import TfidfVectorize
 from torch.utils.data import DataLoader, Dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
-
+from training.algorithms.bow import BoW
+from training.algorithms.one_hot import one_hot_encoding
 
 class Vectorizer:
     def __init__(self):
-        self.vectorizer = TfidfVectorize()
+        self.vectorizer = one_hot_encoding()
     
     def train_vectorizer(self, text_set):
         text_vector = self.vectorizer.fit_transform(text_set)
