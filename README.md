@@ -5,3 +5,4 @@ This repo research and apply all methods in text classification.
 - Language model appoaches: BERT, RoBERTa...
 
 This research give a larger insight in ways to deal with classification problems.
+Result: [Classification Report](https://docs.google.com/document/d/1dFwsDAB1Hl3m8hzpSt5xZRevKchNTTyJZLZumKbrNGE/edit?usp=sharing)
