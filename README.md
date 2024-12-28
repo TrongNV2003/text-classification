@@ -19,7 +19,7 @@ Model trained on Vietnamese Wiki: [Word2vec](https://github.com/sonvx/word2vecVN
 
 create "models" folder and save Word2vec with following path:
 ```sh
-Classification/
+text-classification/
     └── models/
         └── wiki.vi.model.bin
 ```
