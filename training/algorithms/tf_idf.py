@@ -1,6 +1,8 @@
 import math
 from collections import Counter
+
 from scipy.sparse import csr_matrix
+
 
 class Tfidf:
     def __init__(self, spare_output=True):
@@ -8,15 +10,46 @@ class Tfidf:
         self.vocabulary_ = {}
         self.spare_output = spare_output
 
-    def _tf(self, freq_word_counts, total_words):
-        return freq_word_counts / total_words
+    def _tf(self, word_freq: int, total_words: int):
+        """
+        Calculate TF for a word in a document
 
-    def _idf(self, N_docs, freq):
-        return math.log((1 + N_docs) / (1 + freq)) + 1
+        Parameters:
+            word_freq: int
+            total_words: int
+
+        Returns:
+            tf: float
+        """
+
+        return word_freq / total_words
+
+    def _idf(self, total_docs: int, doc_freq: int):
+        """
+        Calculate IDF for a word in corpus
+
+        Parameters:
+            total_docs: int
+            doc_freq: int
+
+        Returns:
+            idf: float
+        """
+
+        return math.log((1 + total_docs) / (1 + doc_freq)) + 1
 
     def fit(self, corpus: list):
-        """Học vocab và tính IDF cho mỗi từ trong tập corpus"""
-        N_docs = len(corpus)
+        """
+        This function will create vocab from the corpus and calculate the IDF for each word in vocab
+
+        Parameters:
+            corpus: list of strings
+
+        Returns:
+            update vocab and idf
+        """
+
+        total_docs = len(corpus)
         doc_freq = Counter()
 
         for doc in corpus:
@@ -26,14 +59,23 @@ class Tfidf:
 
         for idx, word in enumerate(doc_freq):
             self.vocabulary_[word] = idx
-            self.idf[word] = self._idf(N_docs, doc_freq[word])
-            
+            self.idf[word] = self._idf(total_docs, doc_freq[word])
+
         return self
 
     def transform(self, corpus: list):
-        """Convert văn bản thành ma trận TF-IDF"""
-        tfidf_matrix = []
+        """
+        This function will transform the corpus into a BoW representation
 
+
+        Parameters:
+            corpus: list of strings
+
+        Returns:
+            matrix: sparse matrix or csr_matrix
+        """
+
+        matrix = []
         for doc in corpus:
             word_counts = Counter(doc.split())
             total_words = sum(word_counts.values())
@@ -45,13 +87,17 @@ class Tfidf:
                     idf = self.idf[word]
                     idx = self.vocabulary_[word]
                     tfidf_vector[idx] = tf * idf
-                    
-            tfidf_matrix.append(tfidf_vector)
+
+            matrix.append(tfidf_vector)
         if self.spare_output:
-            return csr_matrix(tfidf_matrix)
+            return csr_matrix(matrix)
         else:
-            return tfidf_matrix
+            return matrix
 
     def fit_transform(self, corpus: list):
+        """
+        This function will fit the corpus and transform it into Tf-Idf vector
+        """
+
         self.fit(corpus)
         return self.transform(corpus)
