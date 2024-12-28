@@ -7,24 +7,23 @@ import torch.nn as nn
 from torch.optim import AdamW
 import torch.nn.functional as F
 from transformers import AutoTokenizer
-from training.utils import AverageMeter
-from training.algorithms.tf_idf import TfidfVectorize
-from torch.utils.data import DataLoader, Dataset
-from sklearn.feature_extraction.text import TfidfVectorizer
 from training.algorithms.bow import BoW
-from training.algorithms.one_hot import one_hot_encoding
+from training.utils import AverageMeter
+from training.algorithms.tf_idf import Tfidf
+from training.algorithms.one_hot import OneHot
+from sklearn.preprocessing import OneHotEncoder
+from torch.utils.data import DataLoader, Dataset
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer # Bag of words
 
 class Vectorizer:
     def __init__(self):
-        self.vectorizer = one_hot_encoding()
+        self.vectorizer = OneHot()
     
     def train_vectorizer(self, text_set):
-        text_vector = self.vectorizer.fit_transform(text_set)
-        return text_vector
+        return self.vectorizer.fit_transform(text_set)
     
     def test_vectorizer(self, text_set):
-        text_vector = self.vectorizer.transform(text_set)
-        return text_vector
+        return self.vectorizer.transform(text_set)
 
 class Trainer_trad:
     def __init__(self, model, vector, label):
@@ -33,12 +32,10 @@ class Trainer_trad:
         self.label = label
 
     def train(self):
-        trainer = self.model.fit(self.vector, self.label)
-        return trainer
+        return self.model.fit(self.vector, self.label)
     
     def predict(self):
-        predicter = self.model.predict(self.vector)
-        return predicter
+        return self.model.predict(self.vector)
 
 class Trainer:
     def __init__(

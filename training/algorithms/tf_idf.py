@@ -1,12 +1,12 @@
 import math
-import numpy as np
 from collections import Counter
 from scipy.sparse import csr_matrix
 
-class TfidfVectorize:
-    def __init__(self):
-        self.vocabulary_ = {}
+class Tfidf:
+    def __init__(self, spare_output=True):
         self.idf = {}
+        self.vocabulary_ = {}
+        self.spare_output = spare_output
 
     def _tf(self, freq_word_counts, total_words):
         return freq_word_counts / total_words
@@ -27,6 +27,8 @@ class TfidfVectorize:
         for idx, word in enumerate(doc_freq):
             self.vocabulary_[word] = idx
             self.idf[word] = self._idf(N_docs, doc_freq[word])
+            
+        return self
 
     def transform(self, corpus):
         """Convert văn bản thành ma trận TF-IDF"""
@@ -35,17 +37,20 @@ class TfidfVectorize:
         for doc in corpus:
             word_counts = Counter(doc.split())
             total_words = sum(word_counts.values())
-            tfidf_vector = np.zeros(len(self.vocabulary_))
+            tfidf_vector = [0] * len(self.vocabulary_)
 
             for word, count in word_counts.items():
                 if word in self.vocabulary_:
                     tf = self._tf(count, total_words)
                     idf = self.idf[word]
-                    tfidf_vector[self.vocabulary_[word]] = tf * idf
+                    idx = self.vocabulary_[word]
+                    tfidf_vector[idx] = tf * idf
                     
             tfidf_matrix.append(tfidf_vector)
-
-        return csr_matrix(tfidf_matrix)
+        if self.spare_output:
+            return csr_matrix(tfidf_matrix)
+        else:
+            return tfidf_matrix
 
     def fit_transform(self, corpus):
         self.fit(corpus)
