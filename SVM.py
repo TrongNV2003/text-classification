@@ -1,18 +1,18 @@
 import time
 import argparse
+from sklearn.svm import SVC
+
 from training.evaluate import Tester
 from training.dataloader import Dataset
-from sklearn.linear_model import LogisticRegression
 from training.trainer import Vectorizer, Trainer_trad
 
 vec = Vectorizer()
-model = LogisticRegression(random_state = 42)
+model = SVC(random_state = 42)
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--train_file", type=str, default="dataset/train.json")
 parser.add_argument("--test_file", type=str, default="dataset/test.json")
-
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -25,7 +25,6 @@ if __name__ == "__main__":
     test_text = [test_set[i][0] for i in range(len(test_set))]
     test_label = [test_set[i][1] for i in range(len(test_set))]
 
-
     train_text_vect = vec.train_vectorizer(train_text)
     test_text_vect = vec.test_vectorizer(test_text)
     
@@ -36,7 +35,7 @@ if __name__ == "__main__":
 
     end_time = time.time()
     process_time = round(end_time - start_time, 6)
-    print(f"Training time: {process_time}")
+    print(f"Training time: {process_time}\n")
 
     latencies = []
     for test in test_text_vect:
@@ -52,4 +51,3 @@ if __name__ == "__main__":
     prediction = model.predict(test_text_vect)
     Tester.f1(test_label, prediction)
     Tester.calculate_latency(latencies)
-    

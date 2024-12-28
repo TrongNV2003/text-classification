@@ -1,10 +1,12 @@
 import time
 import argparse
-from training.dataloader import Dataset
+import numpy as np
 from sklearn.naive_bayes import ComplementNB
-from training.trainer import Vectorizer, Trainer_trad
+
 from training.evaluate import Tester
 from training.models import NaiveBayes
+from training.dataloader import Dataset
+from training.trainer import Vectorizer, Trainer_trad
 
 vec = Vectorizer()
 model = NaiveBayes()
@@ -17,17 +19,19 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
     train_set = Dataset(args.train_file)
-    test_set = Dataset(args.test_file)
+    test_set = Dataset(args.test_file)  
     
     train_text = [train_set[i][0] for i in range(len(train_set))]
     train_label = [train_set[i][1] for i in range(len(train_set))]
 
     test_text = [test_set[i][0] for i in range(len(test_set))]
     test_label = [test_set[i][1] for i in range(len(test_set))]
-
+    
     train_text_vect = vec.train_vectorizer(train_text)
     test_text_vect = vec.test_vectorizer(test_text)
-    
+
+    print(train_text_vect.shape)
+
     start_time = time.time()
     
     trainer = Trainer_trad(model, train_text_vect, train_label)

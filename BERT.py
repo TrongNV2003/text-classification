@@ -2,11 +2,12 @@ import torch
 import random
 import argparse
 import numpy as np
-from training.evaluate import Tester
 from torch.utils.data import DataLoader
+from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
+
+from training.evaluate import Tester
 from training.trainer import LlmTrainer
 from training.dataloader import Dataset, LlmDataCollator
-from transformers import AutoConfig, AutoModelForSequenceClassification, AutoTokenizer
 
 def set_seed(seed: int) -> None:
     random.seed(seed)

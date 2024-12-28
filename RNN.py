@@ -2,11 +2,12 @@ import torch
 import random
 import argparse
 import numpy as np
+from gensim.models import KeyedVectors
+from torch.utils.data import DataLoader
+
 from training.models import RNN
 from training.trainer import Trainer
 from training.evaluate import Tester
-from gensim.models import KeyedVectors
-from torch.utils.data import DataLoader
 from training.dataloader import Dataset, DatasetCollator
 
 def set_seed(seed: int) -> None:
