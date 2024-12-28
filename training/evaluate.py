@@ -1,23 +1,37 @@
 import time
-import torch
+
 import numpy as np
+import torch
 import torch.nn as nn
 from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader
 
+
 class Tester:
     def __init__(
-            self,
-            model: torch.nn.Module,
-            test_loader: DataLoader,
-        ) -> None:
-            self.test_loader = test_loader
-            self.BCE_loss = nn.BCELoss()
-            self.CE_loss = nn.CrossEntropyLoss()
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.model = model.to(self.device)
+        self,
+        model: torch.nn.Module,
+        test_loader: DataLoader,
+    ) -> None:
+        self.test_loader = test_loader
+        self.BCE_loss = nn.BCELoss()
+        self.CE_loss = nn.CrossEntropyLoss()
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self.model = model.to(self.device)
 
-    def test(self) -> None:
+    def test_cnn(self) -> None:
+        """
+        This function will eval the model CNN on the test set and return the test loss, accuracy, F1-score and latency
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+
         test_losses = []
         all_labels = []
         all_preds = []
@@ -55,6 +69,16 @@ class Tester:
         self.calculate_latency(latencies)
 
     def test_rnn(self) -> None:
+        """
+        This function will eval the model RNN on the test set and return the test loss, accuracy, F1-score and latency
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+
         test_losses = []
         all_labels = []
         all_preds = []
@@ -66,7 +90,7 @@ class Tester:
             inputs, labels = inputs.to(self.device), labels.to(self.device)
             h = self.model.init_hidden(inputs.size(0))
             h = tuple([each.data for each in h])
-            
+
             start_time = time.time()
 
             output, h = self.model(inputs, h)
@@ -94,6 +118,16 @@ class Tester:
         self.calculate_latency(latencies)
 
     def test_llm(self):
+        """
+        This function will eval the model Bert on the test set and return the test loss, accuracy, F1-score and latency
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        """
+
         self.model.eval()
         latencies = []
         all_labels = []
@@ -103,11 +137,16 @@ class Tester:
         with torch.no_grad():
             for batch in self.test_loader:
                 text_input_ids = batch["text_input_ids"].to(self.device)
-                text_attention_mask = batch["text_attention_mask"].to(self.device)
+                text_attention_mask = batch["text_attention_mask"].to(
+                    self.device
+                )
                 labels = batch["label"].to(self.device)
 
                 start_time = time.time()
-                outputs = self.model(input_ids=text_input_ids, attention_mask=text_attention_mask)
+                outputs = self.model(
+                    input_ids=text_input_ids,
+                    attention_mask=text_attention_mask,
+                )
                 logits = outputs.logits
                 latencies.append(time.time() - start_time)
 
@@ -122,13 +161,34 @@ class Tester:
         self.calculate_latency(latencies)
 
     @staticmethod
-    def f1(label, predict):
-        score = f1_score(label, predict, average='binary')
-        print(f"F1-score: {score*100:.3f}")
-    
+    def f1(label: list, predict: list) -> None:
+        """
+        This function will calculate the F1-score
+
+        Parameters:
+            label: list
+            predict: list
+
+        Returns:
+            f1 score
+        """
+
+        score = f1_score(label, predict, average="binary")
+        print(f"F1-score: {score * 100:.3f}")
+
     @staticmethod
-    def calculate_latency(latencies):
+    def calculate_latency(latencies: list) -> None:
+        """
+        This function will calculate the latency for each sample
+
+        Parameters:
+            latencies: list
+
+        Returns:
+            P95 latency and average latency
+        """
+
         p95_latency = np.percentile(latencies, 95)
         average_latency = np.mean(latencies)
-        print(f"P95 Latency: {p95_latency*1000:.3f} ms")
-        print(f"Average: {average_latency*1000:.3f} ms")
+        print(f"P95 Latency: {p95_latency * 1000:.3f} ms")
+        print(f"Average: {average_latency * 1000:.3f} ms")

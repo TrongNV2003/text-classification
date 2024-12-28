@@ -1,68 +1,77 @@
 import os
 import time
-import torch
+
 import numpy as np
-from tqdm import tqdm
+import torch
 import torch.nn as nn
-from torch.optim import AdamW
 import torch.nn.functional as F
-from transformers import AutoTokenizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.preprocessing import OneHotEncoder
+from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from tqdm import tqdm
+from transformers import AutoTokenizer
 
 from training.algorithms.bow import BoW
-from training.utils import AverageMeter
-from training.algorithms.tf_idf import Tfidf
 from training.algorithms.one_hot import OneHot
+from training.algorithms.tf_idf import Tfidf
+from training.utils import AverageMeter
+
 
 class Vectorizer:
-    def __init__(self):
-        self.vectorizer = BoW()
-    
-    def train_vectorizer(self, text_set):
+    def __init__(self) -> None:
+        self.vectorizer = Tfidf()
+
+    def fit_transform(self, text_set: list) -> torch.Tensor:
         return self.vectorizer.fit_transform(text_set)
-    
-    def test_vectorizer(self, text_set):
+
+    def transform(self, text_set: list) -> torch.Tensor:
         return self.vectorizer.transform(text_set)
 
-class Trainer_trad:
+
+class AlgoTrainer:
     def __init__(self, model, vector, label):
         self.model = model
         self.vector = vector
         self.label = label
 
     def train(self):
+        """This function train the machine learning model"""
         return self.model.fit(self.vector, self.label)
-    
+
     def predict(self):
         return self.model.predict(self.vector)
 
-class Trainer:
-    def __init__(
-            self,
-            model: torch.nn.Module,
-            epochs: int,
-            learning_rate: float,
-            train_loader: DataLoader,
-            valid_loader: DataLoader,
-            save_dir: str
-        ) -> None:
-            self.epochs = epochs
-            self.train_loader = train_loader
-            self.valid_loader = valid_loader
-            self.loss_fn = nn.BCELoss()
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.model = model.to(self.device)
-            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
-            self.save_dir = save_dir
-            os.makedirs(self.save_dir, exist_ok=True)
 
-    def train(self) -> None:
+class DNNTrainer:
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        epochs: int,
+        learning_rate: float,
+        train_loader: DataLoader,
+        valid_loader: DataLoader,
+        save_dir: str,
+    ) -> None:
+        self.epochs = epochs
+        self.train_loader = train_loader
+        self.valid_loader = valid_loader
+        self.loss_fn = nn.BCELoss()
+        self.device = torch.device(
+            "cuda" if torch.cuda.is_available() else "cpu"
+        )
+        self.model = model.to(self.device)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=learning_rate
+        )
+        self.save_dir = save_dir
+        os.makedirs(self.save_dir, exist_ok=True)
+
+    def train_cnn(self) -> None:
         for epoch in range(self.epochs):
             epoch_start_time = time.time()
             train_losses = []
-            
+
             self.model.train()
 
             for inputs, labels in self.train_loader:
@@ -82,7 +91,9 @@ class Trainer:
             self.model.eval()
             with torch.no_grad():
                 for inputs, labels in self.valid_loader:
-                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    inputs, labels = inputs.to(self.device), labels.to(
+                        self.device
+                    )
 
                     output = self.model(inputs)
                     val_loss = self.loss_fn(output.squeeze(), labels.float())
@@ -92,18 +103,19 @@ class Trainer:
 
             self.save_model(epoch)
 
-            print(f"Epoch: {epoch + 1}/{self.epochs}",
+            print(
+                f"Epoch: {epoch + 1}/{self.epochs}",
                 f"Train Loss: {np.mean(train_losses):.6f}",
                 f"Val Loss: {np.mean(val_losses):.6f}",
-                f"Time: {epoch_time:.2f}s")
-            
+                f"Time: {epoch_time:.2f}s",
+            )
 
     def train_rnn(self) -> None:
-        clip = 5 # The maximum gradient value to clip at (to prevent exploding gradients).
+        clip = 5  # The maximum gradient value to clip at (to prevent exploding gradients).
         for epoch in range(self.epochs):
             epoch_start_time = time.time()
             train_losses = []
-            
+
             self.model.train()
 
             for inputs, labels in self.train_loader:
@@ -117,7 +129,9 @@ class Trainer:
 
                 loss = self.loss_fn(output.squeeze(), labels.float())
                 loss.backward()
-                nn.utils.clip_grad_norm_(self.model.parameters(), clip) # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+                nn.utils.clip_grad_norm_(
+                    self.model.parameters(), clip
+                )  # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
                 self.optimizer.step()
 
                 train_losses.append(loss.item())
@@ -126,7 +140,9 @@ class Trainer:
             self.model.eval()
             with torch.no_grad():
                 for inputs, labels in self.valid_loader:
-                    inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    inputs, labels = inputs.to(self.device), labels.to(
+                        self.device
+                    )
                     val_h = self.model.init_hidden(inputs.size(0))
                     val_h = tuple([each.data for each in val_h])
 
@@ -138,26 +154,36 @@ class Trainer:
 
             self.save_model(epoch)
 
-            print(f"Epoch: {epoch + 1}/{self.epochs}",
+            print(
+                f"Epoch: {epoch + 1}/{self.epochs}",
                 f"Train Loss: {np.mean(train_losses):.6f}",
                 f"Val Loss: {np.mean(val_losses):.6f}",
-                f"Time: {epoch_time:.2f}s")
-    
+                f"Time: {epoch_time:.2f}s",
+            )
+
     def save_model(self, epoch: int) -> None:
-        save_path = os.path.join(self.save_dir, f"model_checkpoint_{epoch + 1}.pth")
-        torch.save({
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-        }, save_path)
+        save_path = os.path.join(
+            self.save_dir, f"model_checkpoint_{epoch + 1}.pth"
+        )
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            },
+            save_path,
+        )
 
     def load_model(self, load_path: str) -> None:
         if not os.path.exists(load_path):
             raise FileNotFoundError(f"No checkpoint found {load_path}")
 
-        checkpoint = torch.load(load_path, map_location=self.device, weights_only=True)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
-        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        checkpoint = torch.load(
+            load_path, map_location=self.device, weights_only=True
+        )
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         print(f"Model loaded from {load_path}")
+
 
 class LlmTrainer:
     def __init__(
@@ -175,22 +201,22 @@ class LlmTrainer:
         train_set: Dataset,
         valid_batch_size: int,
         valid_set: Dataset,
-        collator_fn = None,
-        evaluate_on_accuracy: bool = False
+        collator_fn=None,
+        evaluate_on_accuracy: bool = False,
     ) -> None:
         self.device = device
         self.epochs = epochs
         self.save_dir = save_dir
         self.train_batch_size = train_batch_size
         self.valid_batch_size = valid_batch_size
-        
+
         self.train_loader = DataLoader(
             train_set,
             batch_size=train_batch_size,
             num_workers=dataloader_workers,
             pin_memory=pin_memory,
             shuffle=True,
-            collate_fn=collator_fn
+            collate_fn=collator_fn,
         )
         self.valid_loader = DataLoader(
             valid_set,
@@ -198,11 +224,15 @@ class LlmTrainer:
             num_workers=dataloader_workers,
             pin_memory=pin_memory,
             shuffle=False,
-            collate_fn=collator_fn
+            collate_fn=collator_fn,
         )
         self.tokenizer = tokenizer
         self.model = model.to(self.device)
-        self.optimizer = AdamW(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        self.optimizer = AdamW(
+            self.model.parameters(),
+            lr=learning_rate,
+            weight_decay=weight_decay,
+        )
         self.train_loss = AverageMeter()
 
         # self.loss_fn = F.binary_cross_entropy_with_logits()
@@ -214,7 +244,7 @@ class LlmTrainer:
         else:
             self.best_valid_score = float("inf")
 
-    def train(self) -> None:        
+    def train(self) -> None:
         for epoch in range(1, self.epochs + 1):
             self.model.train()
             self.train_loss.reset()
@@ -223,13 +253,18 @@ class LlmTrainer:
                 tepoch.set_description(f"epoch {epoch}")
                 for data in self.train_loader:
                     text_input_ids = data["text_input_ids"].to(self.device)
-                    text_attention_mask = data["text_attention_mask"].to(self.device)
+                    text_attention_mask = data["text_attention_mask"].to(
+                        self.device
+                    )
                     labels = data["label"].to(self.device)
 
-                    outputs = self.model(input_ids=text_input_ids, attention_mask=text_attention_mask)
+                    outputs = self.model(
+                        input_ids=text_input_ids,
+                        attention_mask=text_attention_mask,
+                    )
                     logits = outputs.logits
                     loss = self.loss_fn(logits, labels)
-                    
+
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
@@ -238,14 +273,14 @@ class LlmTrainer:
                     tepoch.set_postfix({"train_loss": self.train_loss.avg})
                     tepoch.update(1)
                 self._save()
-                
+
             valid_loss = self.evaluate(self.valid_loader)
             if valid_loss < self.best_valid_score:
                 print(
-                    f"Validation loss decreased from {self.best_valid_score:.4f} to {valid_loss:.4f}. Saving.")
+                    f"Validation loss decreased from {self.best_valid_score:.4f} to {valid_loss:.4f}. Saving."
+                )
                 self.best_valid_score = valid_loss
                 self._save()
-
 
     @torch.no_grad()
     def evaluate(self, dataloader: DataLoader) -> float:
@@ -254,12 +289,17 @@ class LlmTrainer:
         with tqdm(total=len(dataloader), unit="batches") as tepoch:
             tepoch.set_description("validation")
             for data in dataloader:
-                
+
                 text_input_ids = data["text_input_ids"].to(self.device)
-                text_attention_mask = data["text_attention_mask"].to(self.device)
+                text_attention_mask = data["text_attention_mask"].to(
+                    self.device
+                )
                 labels = data["label"].to(self.device)
 
-                outputs = self.model(input_ids=text_input_ids, attention_mask=text_attention_mask)
+                outputs = self.model(
+                    input_ids=text_input_ids,
+                    attention_mask=text_attention_mask,
+                )
                 logits = outputs.logits
 
                 loss = self.loss_fn(logits, labels)
