@@ -8,7 +8,7 @@ class BoW:
         self.vocab_size = 0
         self.spare_output = spare_output
 
-    def fit(self, corpus):
+    def fit(self, corpus: list):
         vocab_list = set()
         for doc in corpus:
             vocab_list.update(doc.split())
@@ -18,7 +18,7 @@ class BoW:
 
         return self
     
-    def transform(self, corpus):
+    def transform(self, corpus: list):
         row = []
         for doc in corpus:
             word_count = Counter(doc.split())
@@ -33,7 +33,7 @@ class BoW:
         else:
             return row
     
-    def fit_transform(self, corpus):
+    def fit_transform(self, corpus: list):
         self.fit(corpus)
         return self.transform(corpus)
     

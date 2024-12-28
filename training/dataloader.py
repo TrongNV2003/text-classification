@@ -1,8 +1,9 @@
 import json
 import torch
 import numpy as np
-from training.preprocessing import TextPreprocess
 from transformers import AutoTokenizer
+
+from training.preprocessing import TextPreprocess
 
 class Dataset:
     def __init__(self, json_file):

@@ -7,17 +7,18 @@ import torch.nn as nn
 from torch.optim import AdamW
 import torch.nn.functional as F
 from transformers import AutoTokenizer
+from sklearn.preprocessing import OneHotEncoder
+from torch.utils.data import DataLoader, Dataset
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+
 from training.algorithms.bow import BoW
 from training.utils import AverageMeter
 from training.algorithms.tf_idf import Tfidf
 from training.algorithms.one_hot import OneHot
-from sklearn.preprocessing import OneHotEncoder
-from torch.utils.data import DataLoader, Dataset
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer # Bag of words
 
 class Vectorizer:
     def __init__(self):
-        self.vectorizer = OneHot()
+        self.vectorizer = BoW()
     
     def train_vectorizer(self, text_set):
         return self.vectorizer.fit_transform(text_set)

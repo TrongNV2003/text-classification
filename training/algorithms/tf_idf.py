@@ -14,7 +14,7 @@ class Tfidf:
     def _idf(self, N_docs, freq):
         return math.log((1 + N_docs) / (1 + freq)) + 1
 
-    def fit(self, corpus):
+    def fit(self, corpus: list):
         """Học vocab và tính IDF cho mỗi từ trong tập corpus"""
         N_docs = len(corpus)
         doc_freq = Counter()
@@ -30,7 +30,7 @@ class Tfidf:
             
         return self
 
-    def transform(self, corpus):
+    def transform(self, corpus: list):
         """Convert văn bản thành ma trận TF-IDF"""
         tfidf_matrix = []
 
@@ -52,6 +52,6 @@ class Tfidf:
         else:
             return tfidf_matrix
 
-    def fit_transform(self, corpus):
+    def fit_transform(self, corpus: list):
         self.fit(corpus)
         return self.transform(corpus)
