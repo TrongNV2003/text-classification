@@ -1,0 +1,14 @@
+gensim==4.3.3
+nltk==3.9.1
+numpy==2.2.1
+pandas==2.2.3
+scikit_learn==1.6.0
+scipy==1.14.1
+torch==2.5.1+cu121
+tqdm==4.67.1
+tqdm==4.66.5
+transformers==4.47.1
+numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.6.0
+scipy==1.13.1
