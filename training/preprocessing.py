@@ -1,5 +1,5 @@
-import os
 import re
+from typing import List
 
 from underthesea import word_tokenize
 
@@ -8,7 +8,7 @@ class TextPreprocess:
     def __init__(self):
         self.stopwords_file = "stopwords/vietnamese-stopwords.txt"
 
-    def process_text(self, text: str) -> str:
+    def process_text(self, text: List[str]) -> str:
         """
         This function will process the text by removing stopwords, punctuation, and whitespace
         """
@@ -34,7 +34,6 @@ class TextPreprocess:
 
         # tokenize into word phrase for correct removing stopwords
         words = self._word_segment(text)
-        words = words.split()
 
         filtered_words = [word for word in words if word not in stopwords]
         return " ".join(filtered_words)
@@ -71,7 +70,7 @@ class TextPreprocess:
         """
 
         tokens = word_tokenize(text)
-        return " ".join(tokens)
+        return tokens
 
     def _remove_whitespace(self, text: str) -> str:
         """
