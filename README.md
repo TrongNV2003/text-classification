@@ -23,3 +23,7 @@ text-classification/
     └── models/
         └── wiki.vi.model.bin
 ```
+
+### Future plans
+- Load các mô hình về, đóng thành API
+- Xây dựng UI: query input -> có thể lựa chọn ML (NaiveBayes, CNN, Bert...), sau đó gen ra output
