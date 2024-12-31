@@ -1,20 +1,22 @@
-import string
+import os
+import re
+
+from underthesea import word_tokenize
 
 
 class TextPreprocess:
-    def __init__(self, text: str):
+    def __init__(self):
         self.stopwords_file = "stopwords/vietnamese-stopwords.txt"
-        self.text = text
 
-    def process_text(self) -> str:
+    def process_text(self, text: str) -> str:
         """
         This function will process the text by removing stopwords, punctuation, and whitespace
         """
 
-        # cleaned_text = self._remove_stopwords(self.text)
-        cleaned_text = self._lowercase(self.text)
+        cleaned_text = self._remove_whitespace(text)
+        cleaned_text = self._remove_stopwords(cleaned_text)
+        cleaned_text = self._lowercase(cleaned_text)
         cleaned_text = self._remove_punctuation(cleaned_text)
-        cleaned_text = self._remove_whitespace(cleaned_text)
         return cleaned_text
 
     def _remove_stopwords(self, text: str) -> str:
@@ -29,7 +31,11 @@ class TextPreprocess:
         """
 
         stopwords = self._load_stopwords(self.stopwords_file)
-        words = text.split()
+
+        # tokenize into word phrase for correct removing stopwords
+        words = self._word_segment(text)
+        words = words.split()
+
         filtered_words = [word for word in words if word not in stopwords]
         return " ".join(filtered_words)
 
@@ -37,10 +43,6 @@ class TextPreprocess:
         with open(file_path, "r", encoding="utf-8") as f:
             stopwords = f.read().splitlines()
         return stopwords
-
-    # def _remove_punctuation(self, text):
-    #     cleaned_text = text.translate(str.maketrans(string.punctuation, " " * len(string.punctuation)))
-    #     return cleaned_text.lower()
 
     def _remove_punctuation(self, text: str) -> str:
         """
@@ -53,12 +55,23 @@ class TextPreprocess:
             text without punctuation
         """
 
-        punc = "!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
-        full_text = ""
-        for word in text:
-            if word not in punc:
-                full_text += word
-        return full_text
+        cleaned_text = re.sub(r"[^\w\s]", "", text)
+        return cleaned_text
+
+    def _word_segment(self, text: str) -> list:
+        """
+        This function will segment the text into words or phrases
+        Tokenize into phrases for correct removing stopwords
+
+        Parameters:
+            text: str
+
+        Returns:
+            list of words
+        """
+
+        tokens = word_tokenize(text)
+        return " ".join(tokens)
 
     def _remove_whitespace(self, text: str) -> str:
         """
@@ -71,7 +84,8 @@ class TextPreprocess:
             text without whitespace
         """
 
-        return " ".join(text.split())
+        cleaned_text = re.sub(r"\s+", " ", text).strip()
+        return cleaned_text
 
     def _lowercase(self, text: str) -> str:
         """

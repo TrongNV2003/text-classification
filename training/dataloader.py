@@ -7,6 +7,8 @@ from transformers import AutoTokenizer
 
 from training.preprocessing import TextPreprocess
 
+preprocess = TextPreprocess()
+
 
 class Dataset:
     def __init__(self, json_file: str) -> None:
@@ -28,7 +30,7 @@ class Dataset:
 
         item = self.data[index]
         context = item["text"]
-        clean_text = TextPreprocess(context).process_text()
+        clean_text = preprocess.process_text(context)
         label = item["label"]
         return clean_text, label
 
