@@ -6,7 +6,7 @@ import torch
 from gensim.models import KeyedVectors
 from torch.utils.data import DataLoader
 
-from training.dataloader import Dataset, DatasetCollator
+from training.dataloader import Dataset, DnnDataCollator
 from training.evaluate import Tester
 from training.models import RNN
 from training.trainer import DNNTrainer
@@ -22,17 +22,17 @@ def set_seed(seed: int) -> None:
 
 parser = argparse.ArgumentParser()
 
+parser.add_argument("--seed", type=int, default=42)
+parser.add_argument("--lr", type=float, default=1e-3)
+parser.add_argument("--epochs", type=int, default=5)
+parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--train_file", type=str, default="dataset/train.json")
 parser.add_argument("--test_file", type=str, default="dataset/test.json")
 parser.add_argument("--eval_file", type=str, default="dataset/evaluate.json")
 parser.add_argument(
     "--dict_path", type=str, default="models/wiki.vi.model.bin"
 )
-parser.add_argument("--save_dir", type=str, default="RNN_model/")
-parser.add_argument("--epochs", type=int, default=5)
-parser.add_argument("--lr", type=float, default=1e-3)
-parser.add_argument("--batch_size", type=int, default=16)
-parser.add_argument("--seed", type=int, default=42)
+parser.add_argument("--save_dir", type=str, default="models/RNN_model/")
 
 args = parser.parse_args()
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     valid = Dataset(args.test_file)
     test = Dataset(args.test_file)
 
-    collator = DatasetCollator(pretrained_dict)
+    collator = DnnDataCollator(pretrained_dict)
 
     train_loader = DataLoader(
         train,
@@ -105,6 +105,6 @@ if __name__ == "__main__":
     trainer.train_rnn()
 
     tester = Tester(model=rnn_model, test_loader=test_loader)
-    path = "RNN_model/model_checkpoint_3.pth"
+    path = f"RNN_model/model_checkpoint_{args.epochs}.pth"
     trainer.load_model(path)
     tester.test_rnn()
