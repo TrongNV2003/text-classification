@@ -133,6 +133,65 @@ class RNN(nn.Module):
         return hidden
 
 
+class LSTM(nn.Module):
+    def __init__(
+        self,
+        embed_model,
+        vocab_size,
+        output_size,
+        embedding_dim,
+        hidden_dim=128,
+        num_layers=2,
+        drop_prob=0.5,
+    ):
+        super(LSTM, self).__init__()
+
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+
+        self.embedding = nn.Embedding(vocab_size, embedding_dim)
+        self.embedding.weight = nn.Parameter(
+            torch.from_numpy(embed_model.vectors)
+        )
+        self.embedding.weight.requires_grad = True
+
+        self.lstm = nn.LSTM(
+            embedding_dim,
+            hidden_dim,
+            num_layers,
+            batch_first=True,
+            dropout=drop_prob if num_layers > 1 else 0,
+        )
+
+        self.fc = nn.Linear(hidden_dim, output_size)
+
+        self.dropout = nn.Dropout(drop_prob)
+
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        embeds = self.embedding(x)  # (batch_size, seq_length, embedding_dim)
+
+        batch_size = x.size(0)
+        h0 = torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(
+            x.device
+        )
+        c0 = torch.zeros(self.num_layers, batch_size, self.hidden_dim).to(
+            x.device
+        )
+
+        lstm_out, _ = self.lstm(
+            embeds, (h0, c0)
+        )  # (batch_size, seq_length, hidden_dim)
+
+        out = lstm_out[:, -1, :]  # Last state (batch_size, hidden_dim)
+
+        out = self.dropout(out)
+        out = self.fc(out)  # (batch_size, output_size)
+
+        return self.sigmoid(out)  # (batch_size, 1)
+
+
 class NaiveBayes:
     def __init__(self):
         self.class_probs = defaultdict(float)

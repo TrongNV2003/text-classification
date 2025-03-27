@@ -1,16 +1,17 @@
 import os
-import time
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from loguru import logger
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.metrics import f1_score, precision_score, recall_score
 from sklearn.preprocessing import OneHotEncoder
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, get_scheduler
 
 from training.algorithms.bow import BoW
 from training.algorithms.one_hot import OneHot
@@ -30,17 +31,16 @@ class Vectorizer:
 
 
 class AlgoTrainer:
-    def __init__(self, model, vector, label):
+    def __init__(self, model):
         self.model = model
-        self.vector = vector
-        self.label = label
 
-    def train(self):
+    def train(self, vector: list, label: list):
         """This function train the machine learning model"""
-        return self.model.fit(self.vector, self.label)
+        return self.model.fit(vector, label)
 
-    def predict(self):
-        return self.model.predict(self.vector)
+    def predict(self, vector: list):
+        """This function predict the output of the machine learning model"""
+        return self.model.predict(vector)
 
 
 class DNNTrainer:
@@ -56,7 +56,7 @@ class DNNTrainer:
         self.epochs = epochs
         self.train_loader = train_loader
         self.valid_loader = valid_loader
-        self.loss_fn = nn.BCELoss()
+        self.loss_fn = nn.BCEWithLogitsLoss()
         self.device = torch.device(
             "cuda" if torch.cuda.is_available() else "cpu"
         )
@@ -66,77 +66,100 @@ class DNNTrainer:
         )
         self.save_dir = save_dir
         os.makedirs(self.save_dir, exist_ok=True)
+        self.best_acc = -1
 
     def train_cnn(self) -> None:
-        for epoch in range(self.epochs):
-            epoch_start_time = time.time()
-            train_losses = []
+        for epoch in range(1, self.epochs + 1):
+            train_losses = AverageMeter()
 
             self.model.train()
+            with tqdm(total=len(self.train_loader), unit="batches") as tepoch:
+                tepoch.set_description(f"epoch {epoch}")
+                for inputs, labels in self.train_loader:
+                    inputs = inputs.to(self.device)
+                    labels = labels.to(self.device)
 
-            for inputs, labels in self.train_loader:
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                    self.model.zero_grad()
+                    output = self.model(inputs)
 
-                self.model.zero_grad()
+                    loss = self.loss_fn(output.squeeze(), labels.float())
+                    loss.backward()
+                    self.optimizer.step()
+                    train_losses.update(loss.item(), inputs.size(0))
+                    tepoch.set_postfix({"train_loss": train_losses.avg})
+                    tepoch.update(1)
 
-                output = self.model(inputs)
-
-                loss = self.loss_fn(output.squeeze(), labels.float())
-                loss.backward()
-                self.optimizer.step()
-
-                train_losses.append(loss.item())
-
-            val_losses = []
+            val_losses = AverageMeter()
+            val_acc = AverageMeter()
             self.model.eval()
             with torch.no_grad():
-                for inputs, labels in self.valid_loader:
-                    inputs, labels = inputs.to(self.device), labels.to(
-                        self.device
-                    )
+                with tqdm(
+                    total=len(self.valid_loader), unit="batches"
+                ) as tepoch:
+                    tepoch.set_description("validation")
+                    for inputs, labels in self.valid_loader:
+                        inputs = inputs.to(self.device)
+                        labels = labels.to(self.device)
+                        output = self.model(inputs)
+                        val_loss = self.loss_fn(
+                            output.squeeze(), labels.float()
+                        )
+                        val_losses.update(val_loss.item(), labels.size(0))
 
-                    output = self.model(inputs)
-                    val_loss = self.loss_fn(output.squeeze(), labels.float())
-                    val_losses.append(val_loss.item())
+                        preds = (output.squeeze() >= 0.5).float()
+                        accuracy = (preds == labels).float().mean()
+                        val_acc.update(accuracy.item(), labels.size(0))
 
-            epoch_time = time.time() - epoch_start_time
+                        tepoch.set_postfix(
+                            {
+                                "valid_loss": val_losses.avg,
+                                "valid_acc": val_acc.avg,
+                            }
+                        )
+                        tepoch.update(1)
 
-            self.save_model(epoch)
+            current_acc = val_acc.avg
+            if current_acc > self.best_acc:
+                print(
+                    f"Validation accuracy improved from {self.best_acc:.4f} to {current_acc:.4f}. Saving..."
+                )
+                self.best_acc = current_acc
+                self._save_model(epoch)
 
-            print(
-                f"Epoch: {epoch + 1}/{self.epochs}",
-                f"Train Loss: {np.mean(train_losses):.6f}",
-                f"Val Loss: {np.mean(val_losses):.6f}",
-                f"Time: {epoch_time:.2f}s",
-            )
+            else:
+                print("No improvement in val accuracy.")
 
     def train_rnn(self) -> None:
         clip = 5  # The maximum gradient value to clip at (to prevent exploding gradients).
-        for epoch in range(self.epochs):
-            epoch_start_time = time.time()
-            train_losses = []
+        for epoch in range(1, self.epochs + 1):
+            train_losses = AverageMeter()
 
             self.model.train()
+            with tqdm(total=len(self.train_loader), unit="batches") as tepoch:
+                tepoch.set_description(f"epoch {epoch}")
+                for inputs, labels in self.train_loader:
+                    inputs = inputs.to(self.device)
+                    labels = labels.to(self.device)
+                    h = self.model.init_hidden(inputs.size(0))
+                    h = tuple([each.data for each in h])
 
-            for inputs, labels in self.train_loader:
-                inputs, labels = inputs.to(self.device), labels.to(self.device)
-                h = self.model.init_hidden(inputs.size(0))
-                h = tuple([each.data for each in h])
+                    self.model.zero_grad()
 
-                self.model.zero_grad()
+                    output, h = self.model(inputs, h)
 
-                output, h = self.model(inputs, h)
+                    loss = self.loss_fn(output.squeeze(), labels.float())
+                    loss.backward()
+                    nn.utils.clip_grad_norm_(
+                        self.model.parameters(), clip
+                    )  # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
+                    self.optimizer.step()
+                    train_losses.update(loss.item(), inputs.size(0))
+                    tepoch.set_postfix({"train_loss": train_losses.avg})
+                    tepoch.update(1)
 
-                loss = self.loss_fn(output.squeeze(), labels.float())
-                loss.backward()
-                nn.utils.clip_grad_norm_(
-                    self.model.parameters(), clip
-                )  # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-                self.optimizer.step()
+            val_losses = AverageMeter()
+            val_acc = AverageMeter()
 
-                train_losses.append(loss.item())
-
-            val_losses = []
             self.model.eval()
             with torch.no_grad():
                 for inputs, labels in self.valid_loader:
@@ -148,20 +171,97 @@ class DNNTrainer:
 
                     output, val_h = self.model(inputs, val_h)
                     val_loss = self.loss_fn(output.squeeze(), labels.float())
-                    val_losses.append(val_loss.item())
+                    val_losses.update(val_loss.item(), labels.size(0))
 
-            epoch_time = time.time() - epoch_start_time
+                    preds = (output.squeeze() >= 0.5).float()
+                    accuracy = (preds == labels).float().mean()
+                    val_acc.update(accuracy.item(), labels.size(0))
 
-            self.save_model(epoch)
+                    tepoch.set_postfix(
+                        {
+                            "valid_loss": val_losses.avg,
+                            "valid_acc": val_acc.avg,
+                        }
+                    )
+                    tepoch.update(1)
 
-            print(
-                f"Epoch: {epoch + 1}/{self.epochs}",
-                f"Train Loss: {np.mean(train_losses):.6f}",
-                f"Val Loss: {np.mean(val_losses):.6f}",
-                f"Time: {epoch_time:.2f}s",
-            )
+            current_acc = val_acc.avg
+            if current_acc > self.best_acc:
+                print(
+                    f"Validation accuracy improved from {self.best_acc:.4f} to {current_acc:.4f}. Saving..."
+                )
+                self.best_acc = current_acc
+                self._save_model(epoch)
 
-    def save_model(self, epoch: int) -> None:
+            else:
+                print("No improvement in val accuracy.")
+
+    def train_lstm(self) -> None:
+        for epoch in range(1, self.epochs + 1):
+            train_losses = AverageMeter()
+
+            self.model.train()
+            with tqdm(total=len(self.train_loader), unit="batches") as tepoch:
+                tepoch.set_description(f"epoch {epoch}")
+                for inputs, labels in self.train_loader:
+                    inputs = inputs.to(self.device)
+                    labels = labels.to(self.device)
+
+                    self.model.zero_grad()
+                    output = self.model(inputs)
+
+                    loss = self.loss_fn(output.squeeze(), labels.float())
+                    loss.backward()
+
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(), max_norm=1.0
+                    )
+
+                    self.optimizer.step()
+                    train_losses.update(loss.item(), inputs.size(0))
+                    tepoch.set_postfix({"train_loss": train_losses.avg})
+                    tepoch.update(1)
+
+            val_losses = AverageMeter()
+            val_acc = AverageMeter()
+            self.model.eval()
+            with torch.no_grad():
+                with tqdm(
+                    total=len(self.valid_loader), unit="batches"
+                ) as tepoch:
+                    tepoch.set_description("validation")
+                    for inputs, labels in self.valid_loader:
+                        inputs = inputs.to(self.device)
+                        labels = labels.to(self.device)
+                        output = self.model(inputs)
+                        val_loss = self.loss_fn(
+                            output.squeeze(), labels.float()
+                        )
+                        val_losses.update(val_loss.item(), labels.size(0))
+
+                        preds = (output.squeeze() >= 0.5).float()
+                        accuracy = (preds == labels).float().mean()
+                        val_acc.update(accuracy.item(), labels.size(0))
+
+                        tepoch.set_postfix(
+                            {
+                                "valid_loss": val_losses.avg,
+                                "valid_acc": val_acc.avg,
+                            }
+                        )
+                        tepoch.update(1)
+
+            current_acc = val_acc.avg
+            if current_acc > self.best_acc:
+                print(
+                    f"Validation accuracy improved from {self.best_acc:.4f} to {current_acc:.4f}. Saving..."
+                )
+                self.best_acc = current_acc
+                self._save_model(epoch)
+            else:
+                print("No improvement in val accuracy.")
+
+    def _save_model(self, epoch: int) -> None:
         save_path = os.path.join(
             self.save_dir, f"model_checkpoint_{epoch + 1}.pth"
         )
@@ -193,6 +293,7 @@ class LlmTrainer:
         epochs: int,
         learning_rate: float,
         weight_decay: float,
+        warmup_steps: int,
         model: torch.nn.Module,
         tokenizer: AutoTokenizer,
         pin_memory: bool,
@@ -203,6 +304,8 @@ class LlmTrainer:
         valid_set: Dataset,
         collator_fn=None,
         evaluate_on_accuracy: bool = False,
+        early_stopping_patience: int = 3,
+        early_stopping_threshold: float = 0.001,
     ) -> None:
         self.device = device
         self.epochs = epochs
@@ -228,85 +331,200 @@ class LlmTrainer:
         )
         self.tokenizer = tokenizer
         self.model = model.to(self.device)
-        self.optimizer = AdamW(
-            self.model.parameters(),
-            lr=learning_rate,
-            weight_decay=weight_decay,
-        )
-        self.train_loss = AverageMeter()
 
-        # self.loss_fn = F.binary_cross_entropy_with_logits()
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+            {
+                "params": [
+                    p
+                    for n, p in self.model.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ],
+                "weight_decay": weight_decay,
+            },
+            {
+                "params": [
+                    p
+                    for n, p in self.model.named_parameters()
+                    if any(nd in n for nd in no_decay)
+                ],
+                "weight_decay": 0.0,
+            },
+        ]
+        self.optimizer = AdamW(optimizer_grouped_parameters, lr=learning_rate)
+
         self.loss_fn = nn.CrossEntropyLoss()
 
+        num_training_steps = len(self.train_loader) * epochs
+        self.scheduler = get_scheduler(
+            "linear",
+            optimizer=self.optimizer,
+            num_warmup_steps=warmup_steps,
+            num_training_steps=num_training_steps,
+        )
+
         self.evaluate_on_accuracy = evaluate_on_accuracy
-        if evaluate_on_accuracy:
-            self.best_valid_score = 0
-        else:
-            self.best_valid_score = float("inf")
+        self.best_valid_score = 0 if evaluate_on_accuracy else float("inf")
+        self.early_stopping_patience = early_stopping_patience
+        self.early_stopping_threshold = early_stopping_threshold
+        self.early_stopping_counter = 0
+        self.best_epoch = 0
 
     def train(self) -> None:
         for epoch in range(1, self.epochs + 1):
             self.model.train()
-            self.train_loss.reset()
+            train_loss = AverageMeter()
 
             with tqdm(total=len(self.train_loader), unit="batches") as tepoch:
                 tepoch.set_description(f"epoch {epoch}")
                 for data in self.train_loader:
-                    text_input_ids = data["text_input_ids"].to(self.device)
-                    text_attention_mask = data["text_attention_mask"].to(
-                        self.device
-                    )
-                    labels = data["label"].to(self.device)
+                    input_ids = data["input_ids"].to(self.device)
+                    attention_mask = data["attention_mask"].to(self.device)
+                    labels = data["labels"].to(self.device)
 
                     outputs = self.model(
-                        input_ids=text_input_ids,
-                        attention_mask=text_attention_mask,
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
                     )
                     logits = outputs.logits
                     loss = self.loss_fn(logits, labels)
 
                     self.optimizer.zero_grad()
                     loss.backward()
+                    nn.utils.clip_grad_norm_(
+                        self.model.parameters(), max_norm=1.0
+                    )
                     self.optimizer.step()
+                    self.scheduler.step()
 
-                    self.train_loss.update(loss.item(), self.train_batch_size)
-                    tepoch.set_postfix({"train_loss": self.train_loss.avg})
+                    train_loss.update(loss.item(), input_ids.size(0))
+                    current_lr = self.optimizer.param_groups[0]["lr"]
+                    tepoch.set_postfix(
+                        {"train_loss": train_loss.avg, "lr": current_lr}
+                    )
                     tepoch.update(1)
-                self._save()
 
-            valid_loss = self.evaluate(self.valid_loader)
-            if valid_loss < self.best_valid_score:
+            valid_score = self.evaluate(self.valid_loader)
+            improved = False
+
+            if self.evaluate_on_accuracy:
+                if (
+                    valid_score
+                    > self.best_valid_score + self.early_stopping_threshold
+                ):
+                    print(
+                        f"Validation accuracy improved from {self.best_valid_score:.4f} to {valid_score:.4f}. Saving..."
+                    )
+                    self.best_valid_score = valid_score
+                    self.best_epoch = epoch
+                    self._save()
+                    self.early_stopping_counter = 0
+                    improved = True
+                    print("Saved best model.")
+                else:
+                    self.early_stopping_counter += 1
+                    print(
+                        f"No improvement in val accuracy. Counter: {self.early_stopping_counter}/{self.early_stopping_patience}"
+                    )
+
+            else:
+                if (
+                    valid_score
+                    < self.best_valid_score - self.early_stopping_threshold
+                ):
+                    print(
+                        f"Validation loss decreased from {self.best_valid_score:.4f} to {valid_score:.4f}. Saving..."
+                    )
+                    self.best_valid_score = valid_score
+                    self.best_epoch = epoch
+                    self._save()
+                    self.early_stopping_counter = 0
+                    improved = True
+                    print("Saved best model.")
+                else:
+                    self.early_stopping_counter += 1
+                    print(
+                        f"No improvement in validation loss. Counter: {self.early_stopping_counter}/{self.early_stopping_patience}"
+                    )
+
+            if improved:
+                print(f"Saved best model at epoch {self.best_epoch}.")
+
+            if self.early_stopping_counter >= self.early_stopping_patience:
                 print(
-                    f"Validation loss decreased from {self.best_valid_score:.4f} to {valid_loss:.4f}. Saving."
+                    f"Early stopping triggered after {self.early_stopping_patience} epochs without improvement."
                 )
-                self.best_valid_score = valid_loss
-                self._save()
+                break
 
     @torch.no_grad()
     def evaluate(self, dataloader: DataLoader) -> float:
         self.model.eval()
         eval_loss = AverageMeter()
+        all_preds = []
+        all_labels = []
+
         with tqdm(total=len(dataloader), unit="batches") as tepoch:
             tepoch.set_description("validation")
             for data in dataloader:
-
-                text_input_ids = data["text_input_ids"].to(self.device)
-                text_attention_mask = data["text_attention_mask"].to(
-                    self.device
-                )
-                labels = data["label"].to(self.device)
+                input_ids = data["input_ids"].to(self.device)
+                attention_mask = data["attention_mask"].to(self.device)
+                labels = data["labels"].to(self.device)
 
                 outputs = self.model(
-                    input_ids=text_input_ids,
-                    attention_mask=text_attention_mask,
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
                 )
                 logits = outputs.logits
-
                 loss = self.loss_fn(logits, labels)
-                eval_loss.update(loss.item(), self.valid_batch_size)
-                tepoch.set_postfix({"valid_loss": eval_loss.avg})
+                eval_loss.update(loss.item(), input_ids.size(0))
+
+                preds = torch.argmax(logits, dim=-1).cpu().numpy()
+                all_preds.append(preds)
+                all_labels.append(labels.cpu().numpy())
+
+                if self.evaluate_on_accuracy:
+                    all_preds_array = np.concatenate(all_preds)
+                    all_labels_array = np.concatenate(all_labels)
+                    correct = (
+                        (
+                            torch.tensor(all_preds_array)
+                            == torch.tensor(all_labels_array)
+                        )
+                        .sum()
+                        .item()
+                    )
+
+                    total = len(all_labels)
+                    accuracy = correct / total if total > 0 else 0
+                    tepoch.set_postfix(
+                        {"valid_loss": eval_loss.avg, "valid_acc": accuracy}
+                    )
+                else:
+                    tepoch.set_postfix({"valid_loss": eval_loss.avg})
+
                 tepoch.update(1)
-        return eval_loss.avg
+
+        all_preds = np.concatenate(all_preds)
+        all_labels = np.concatenate(all_labels)
+
+        accuracy = np.mean(all_preds == all_labels)
+        precision = precision_score(
+            all_labels, all_preds, average="weighted", zero_division=0
+        )
+        recall = recall_score(
+            all_labels, all_preds, average="weighted", zero_division=0
+        )
+        f1 = f1_score(
+            all_labels, all_preds, average="weighted", zero_division=0
+        )
+
+        logger.info("\n=== Validation Metrics ===")
+        print(f"Accuracy: {accuracy * 100:.2f}%")
+        print(f"Precision: {precision * 100:.2f}%")
+        print(f"Recall: {recall * 100:.2f}%")
+        print(f"F1-score: {f1 * 100:.2f}%")
+
+        return accuracy if self.evaluate_on_accuracy else eval_loss.avg
 
     def _save(self) -> None:
         self.tokenizer.save_pretrained(self.save_dir)

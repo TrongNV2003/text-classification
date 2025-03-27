@@ -3,8 +3,10 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, precision_score, recall_score
 from torch.utils.data import DataLoader
+
+from training.utils import AverageMeter
 
 
 class Tester:
@@ -22,16 +24,6 @@ class Tester:
         self.model = model.to(self.device)
 
     def test_cnn(self) -> None:
-        """
-        This function will eval the model CNN on the test set and return the test loss, accuracy, F1-score and latency
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-
         test_losses = []
         all_labels = []
         all_preds = []
@@ -39,46 +31,36 @@ class Tester:
         num_correct = 0
 
         self.model.eval()
-        for inputs, labels in self.test_loader:
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
+        with torch.no_grad():
+            for inputs, labels in self.test_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
 
-            start_time = time.time()
+                start_time = time.time()
 
-            output = self.model(inputs)
+                output = self.model(inputs)
 
-            end_time = time.time()
-            latencies.append(end_time - start_time)
+                end_time = time.time()
+                latencies.append(end_time - start_time)
 
-            test_loss = self.BCE_loss(output.squeeze(), labels.float())
-            test_losses.append(test_loss.item())
+                test_loss = self.BCE_loss(output.squeeze(), labels.float())
+                test_losses.append(test_loss.item())
 
-            pred = torch.round(output.squeeze())
+                pred = torch.round(output.squeeze())
 
-            all_labels.extend(labels.cpu().detach().numpy())
-            all_preds.extend(pred.cpu().detach().numpy())
+                all_labels.extend(labels.cpu().detach().numpy())
+                all_preds.extend(pred.cpu().detach().numpy())
 
-            correct_tensor = pred.eq(labels.float().view_as(pred))
-            correct = np.squeeze(correct_tensor.cpu().detach().numpy())
-            num_correct += np.sum(correct)
+                correct_tensor = pred.eq(labels.float().view_as(pred))
+                correct = np.squeeze(correct_tensor.cpu().detach().numpy())
+                num_correct += np.sum(correct)
 
         print("Test loss: {:.3f}".format(np.mean(test_losses)))
-        test_acc = num_correct / len(self.test_loader.dataset)
-        print("Accuracy: {:.3f}".format(test_acc))
 
-        self.f1(all_labels, all_preds)
-        self.calculate_latency(latencies)
+        calculate_accuracy(all_labels, all_preds)
+        print_metrics(all_labels, all_preds)
+        calculate_latency(latencies)
 
     def test_rnn(self) -> None:
-        """
-        This function will eval the model RNN on the test set and return the test loss, accuracy, F1-score and latency
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-
         test_losses = []
         all_labels = []
         all_preds = []
@@ -86,48 +68,69 @@ class Tester:
         num_correct = 0
 
         self.model.eval()
-        for inputs, labels in self.test_loader:
-            inputs, labels = inputs.to(self.device), labels.to(self.device)
-            h = self.model.init_hidden(inputs.size(0))
-            h = tuple([each.data for each in h])
+        with torch.no_grad():
+            for inputs, labels in self.test_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+                h = self.model.init_hidden(inputs.size(0))
+                h = tuple([each.data for each in h])
 
-            start_time = time.time()
+                start_time = time.time()
 
-            output, h = self.model(inputs, h)
+                output, h = self.model(inputs, h)
 
-            end_time = time.time()
-            latencies.append(end_time - start_time)
+                end_time = time.time()
+                latencies.append(end_time - start_time)
 
-            test_loss = self.BCE_loss(output.squeeze(), labels.float())
-            test_losses.append(test_loss.item())
+                test_loss = self.BCE_loss(output.squeeze(), labels.float())
+                test_losses.append(test_loss.item())
 
-            pred = torch.round(output.squeeze())
+                pred = torch.round(output.squeeze())
 
-            all_labels.extend(labels.cpu().detach().numpy())
-            all_preds.extend(pred.cpu().detach().numpy())
+                all_labels.extend(labels.cpu().detach().numpy())
+                all_preds.extend(pred.cpu().detach().numpy())
 
-            correct_tensor = pred.eq(labels.float().view_as(pred))
-            correct = np.squeeze(correct_tensor.cpu().detach().numpy())
-            num_correct += np.sum(correct)
+                correct_tensor = pred.eq(labels.float().view_as(pred))
+                correct = np.squeeze(correct_tensor.cpu().detach().numpy())
+                num_correct += np.sum(correct)
 
-        print("Test loss: {:.3f}".format(np.mean(test_losses)))
-        test_acc = num_correct / len(self.test_loader.dataset)
-        print("Accuracy: {:.3f}".format(test_acc))
+        print(f"Test loss: {np.mean(test_losses):.3f}")
 
-        self.f1(all_labels, all_preds)
-        self.calculate_latency(latencies)
+        calculate_accuracy(all_labels, all_preds)
+        print_metrics(all_labels, all_preds)
+        calculate_latency(latencies)
+
+    def test_lstm(self) -> None:
+        self.model.eval()
+        test_losses = AverageMeter()
+        latencies = []
+        all_labels = []
+        all_preds = []
+
+        self.model.eval()
+        with torch.no_grad():
+            for inputs, labels in self.test_loader:
+                inputs, labels = inputs.to(self.device), labels.to(self.device)
+
+                start_time = time.time()
+                output = self.model(inputs)
+                end_time = time.time()
+
+                loss = self.loss_fn(output.squeeze(), labels.float())
+                test_losses.update(loss.item(), inputs.size(0))
+
+                preds = (output.squeeze() >= 0.5).float()
+
+                all_labels.extend(labels.cpu().numpy())
+                all_preds.extend(preds.cpu().numpy())
+
+                latency = end_time - start_time
+                latencies.append(latency)
+
+        calculate_accuracy(all_labels, all_preds)
+        print_metrics(all_labels, all_preds)
+        calculate_latency(latencies)
 
     def test_llm(self):
-        """
-        This function will eval the model Bert on the test set and return the test loss, accuracy, F1-score and latency
-
-        Parameters:
-            None
-
-        Returns:
-            None
-        """
-
         self.model.eval()
         latencies = []
         all_labels = []
@@ -136,16 +139,14 @@ class Tester:
 
         with torch.no_grad():
             for batch in self.test_loader:
-                text_input_ids = batch["text_input_ids"].to(self.device)
-                text_attention_mask = batch["text_attention_mask"].to(
-                    self.device
-                )
-                labels = batch["label"].to(self.device)
+                input_ids = batch["input_ids"].to(self.device)
+                attention_mask = batch["attention_mask"].to(self.device)
+                labels = batch["labels"].to(self.device)
 
                 start_time = time.time()
                 outputs = self.model(
-                    input_ids=text_input_ids,
-                    attention_mask=text_attention_mask,
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
                 )
                 logits = outputs.logits
                 latencies.append(time.time() - start_time)
@@ -157,38 +158,38 @@ class Tester:
                 all_preds.extend(preds)
                 all_labels.extend(labels.cpu().numpy())
 
-        self.f1(all_labels, all_preds)
-        self.calculate_latency(latencies)
+        print_metrics(all_labels, all_preds)
+        calculate_latency(latencies)
+        calculate_accuracy(all_labels, all_preds)
 
-    @staticmethod
-    def f1(label: list, predict: list) -> None:
-        """
-        This function will calculate the F1-score
 
-        Parameters:
-            label: list
-            predict: list
+@staticmethod
+def print_metrics(true_labels: list, predicted_labels: list) -> None:
+    precision = precision_score(
+        true_labels, predicted_labels, average="binary"
+    )
+    recall = recall_score(true_labels, predicted_labels, average="binary")
+    f1 = f1_score(true_labels, predicted_labels, average="binary")
+    print(f"Precision: {precision * 100:.2f}")
+    print(f"Recall: {recall * 100:.2f}")
+    print(f"F1-score: {f1 * 100:.2f}")
 
-        Returns:
-            f1 score
-        """
 
-        score = f1_score(label, predict, average="binary")
-        print(f"F1-score: {score * 100:.3f}")
+@staticmethod
+def calculate_accuracy(true_labels: list, predicted_labels: list) -> None:
+    correct = 0
+    total = len(true_labels)
+    for true, pred in zip(true_labels, predicted_labels):
+        if true == pred:
+            correct += 1
+    accuracy = correct / total if total > 0 else 0
+    print(f"Accuracy: {accuracy * 100:.2f}")
+    return accuracy
 
-    @staticmethod
-    def calculate_latency(latencies: list) -> None:
-        """
-        This function will calculate the latency for each sample
 
-        Parameters:
-            latencies: list
-
-        Returns:
-            P95 latency and average latency
-        """
-
-        p95_latency = np.percentile(latencies, 95)
-        average_latency = np.mean(latencies)
-        print(f"P95 Latency: {p95_latency * 1000:.3f} ms")
-        print(f"Average: {average_latency * 1000:.3f} ms")
+@staticmethod
+def calculate_latency(latencies: list) -> None:
+    p99_latency = np.percentile(latencies, 99)
+    average_latency = np.mean(latencies)
+    print(f"P99 Latency: {p99_latency * 1000:.3f} ms")
+    print(f"Average: {average_latency * 1000:.3f} ms")

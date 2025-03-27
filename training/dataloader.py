@@ -20,14 +20,6 @@ class Dataset:
         return len(self.data)
 
     def __getitem__(self, index: int) -> Tuple[str, int]:
-        """
-        Get the item at the given index
-
-        Returns:
-            text: the text of the item
-            label: the label of the item
-        """
-
         item = self.data[index]
         context = item["text"]
         clean_text = preprocess.process_text(context)
@@ -35,41 +27,25 @@ class Dataset:
         return clean_text, label
 
 
-class DatasetCollator:
-    def __init__(self, pretrained_words: str, seq_length=200) -> None:
-        self.seq_length = seq_length
+class DnnDataCollator:
+    def __init__(self, pretrained_words: str, max_length=200) -> None:
+        self.max_length = max_length
         self.pretrained_words = pretrained_words
 
     def __call__(self, batch: list) -> Tuple[torch.Tensor, torch.Tensor]:
-        """
-        Tokenize the batch of data and convert tokenized data to tensor
-
-        Parameters:
-            batch: list of tuple
-
-        Returns:
-            contexts: tensor
-            labels: tensor
-        """
-
         contexts, labels = zip(*batch)
         contexts = [self._tokenize(text) for text in contexts]
+        contexts_array = np.stack(contexts)
         return (
-            torch.tensor(np.array(contexts), dtype=torch.long),
+            torch.tensor(contexts_array, dtype=torch.long),
             torch.tensor(np.array(labels), dtype=torch.float),
         )
 
     def _tokenize(self, text: str) -> List[int]:
-        """
-        Tokenize the given doc into word
-        If the word is not in the pretrained_words, return <unk> token
-
-        Parameters:
-            text: str
-
-        Returns:
-            features: list of int
-        """
+        if not text or not isinstance(
+            text, str
+        ):  # Handle empty or invalid input
+            return self._padding([])
 
         words = text.split()
         tokenized_text = [
@@ -79,21 +55,16 @@ class DatasetCollator:
         return self._padding(tokenized_text)
 
     def _padding(self, tokenized_text: list) -> List[int]:
-        """
-        Padding the tokenized_text to the seq_length
+        features = np.zeros(self.max_length, dtype=int)
+        if not tokenized_text or not isinstance(tokenized_text, list):
+            return features.tolist()
 
-        Parameters:
-            tokenized_text: list of int
-
-        Returns:
-            features: list of int
-        """
-
-        features = np.zeros(self.seq_length, dtype=int)
-        features[-len(tokenized_text) :] = np.array(tokenized_text)[
-            : self.seq_length
-        ]
-        return features
+        token_len = len(tokenized_text)
+        if token_len > self.max_length:
+            features[:] = tokenized_text[: self.max_length]
+        else:
+            features[-token_len:] = tokenized_text
+        return features.tolist()
 
 
 class LlmDataCollator:
@@ -102,29 +73,17 @@ class LlmDataCollator:
         self.max_length = max_length
 
     def __call__(self, batch: list) -> Mapping[str, torch.Tensor]:
-        """
-        Tokenize the batch of data and convert tokenized data to tensor
-
-        Parameters:
-            batch: list of tuple
-
-        Returns:
-            input_ids: tensor
-            attention_mask: tensor
-            label: tensor
-        """
-
         contexts, labels = zip(*batch)
 
         texts = self.tokenizer(
             contexts,
             max_length=self.max_length,
-            padding="max_length",
+            padding=True,
             truncation=True,
             return_tensors="pt",
         )
         return {
-            "text_input_ids": texts["input_ids"].squeeze(),
-            "text_attention_mask": texts["attention_mask"].squeeze(),
-            "label": torch.tensor(np.array(labels), dtype=torch.long),
+            "input_ids": texts["input_ids"].squeeze(),
+            "attention_mask": texts["attention_mask"].squeeze(),
+            "labels": torch.tensor(np.array(labels), dtype=torch.long),
         }
